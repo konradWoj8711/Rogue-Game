@@ -2,6 +2,7 @@ import VARS
 import boot
 import pygame
 import random
+import networkx as nx
 
 fps_clock = pygame.time.Clock()
 
@@ -56,9 +57,18 @@ class MainGameWindow():
             self.blocked_area = set()
             self.terrain = self.generate_terrain()
             self.current_placements = {}
-
             self.enemies = {}
-            for i in range(2):
+            self.path_grapth = nx.grid_2d_graph(int(len(self.grid['start_x'])/4), int(len(self.grid['start_y'])/4))
+            print(int(len(self.grid['start_x'])/4), int(len(self.grid['start_y'])/4))
+
+            for i in self.blocked_area:
+                remove_cord = (int(i[0]/4), int(i[1]/4))
+                try:
+                    self.path_grapth.remove_node(remove_cord)
+                except:
+                    pass
+
+            for i in range(3):
                 self.enemies[i] = Enemy(i, world=self)
 
             self.state = self.main_loop()
@@ -235,6 +245,7 @@ class MainGameWindow():
             """
             avoidance = set()
             for block_id, occupation in self.current_placements.items():
+                if block_id == 'player': continue
                 if block_id != object_type:
                     avoidance.update(occupation)
 
@@ -249,6 +260,19 @@ class MainGameWindow():
 
         return True
 
+    def get_free_cords(self):
+        all_cords = set()
+        w, h = len(self.grid['start_x']), len(self.grid['start_y'])
+        for x in range(w):
+            for y in range(h):
+                all_cords.add((x, y))
+
+        free_cords = []
+        for cord in all_cords:
+            if cord not in self.blocked_area:
+                free_cords.append(cord)
+
+        return all_cords
 
 class BaseStats():
     def __init__(self, speed=0.15):
@@ -353,16 +377,35 @@ class Enemy():
             self.position = [temp_position[0], temp_position[1]]
 
     def find_path(self, target):
-        temp_coordinates = self.position
-        tried_positions = set()
-        move_order = []
+        starting_point = (int(round(self.position[0]/4, 0)), int(round(self.position[1]/4, 0)))
+        target = (int(round(target[0]/4, 0)), int(round(target[1]/4, 0)))
+        #print(starting_point, target)
+        try:
+            move_order = nx.bidirectional_shortest_path(self.world.path_grapth, source=starting_point, target=target)
+            for i in move_order:
+                draw_rect(
+                    (62, 176, 106),
+                    self.world.grid['start_x'][i[0]*4], self.world.grid['end_x'][i[0]*4],
+                    self.world.grid['start_y'][i[1]*4], self.world.grid['end_y'][i[1]*4],
+                    self.world.screen
+                )
+            if len(move_order) > 1:
+                print(len(move_order))
+                print(move_order[1][0]*4, move_order[1][1]*4)
+                new_pos = [move_order[1][0]*4, move_order[1][1]*4]
+                self.position = new_pos
+        except:
+            pass
 
+
+        #print(self.world.free_terrain )
+        """
+        tried_positions = set()
         while temp_coordinates != target:
 
             neighbouring_squares = []
             move_rank, move_dict = [], {}
 
-            tried_positions = set()
             for i in range(-1, 2):
                 if i == 0 : continue
                 neighbouring_squares.append([temp_coordinates[0] + i, temp_coordinates[1]])
@@ -377,26 +420,25 @@ class Enemy():
                 if y_away < 0:
                     y_away = y_away * -1
 
-                print(x_away, y_away)
-                print()
                 move_rank.append(x_away+y_away)
                 move_dict[x_away+y_away] = possible_position
 
             illegal = 0
             move_rank.sort()
-            move = False
             for move in move_rank:
                 new_position = move_dict[move]
                 if self.world.check_fit(new_position, self.corners, self.enemy_id) and str(new_position) not in tried_positions:
                     tried_positions.add(str(new_position))
-                    tried_positions= new_position
+                    temp_coordinates = new_position
                     move_order.append(new_position)
-                    move = True
                     break
 
-        self.position = temp_coordinates
+            if move < 100:
+                break
 
-        """
+        print(move_order)
+        self.position = temp_coordinates
+        
 
         temp_pos = self.position.copy()
         for direction in moves:
