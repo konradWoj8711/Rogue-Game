@@ -12,7 +12,6 @@ def get_display_grid(display_size):
         square_name = str(round(width,0)) + ':' + str(round(height,0))
 
         if (width.is_integer() and height.is_integer()):
-            print(square_name)
             whole_numbers[square_name] = {
                 'start_x':{},
                 'end_x':{},
