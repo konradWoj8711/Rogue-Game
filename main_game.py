@@ -41,12 +41,11 @@ class MainGameWindow():
         self.mouse_pos = None
         self.tick_time = 0
 
-        self.blocked_area = {}
+        self.blocked_area = set()
         self.player = character(world = self)
+
         self.terrain = self.generate_terrain()
         self.state = self.main_loop()
-
-
 
     def generate_terrain(self):
         grid_x, grid_y = (len(self.grid['start_x'])/4), (len(self.grid['start_y'])/4)
@@ -89,17 +88,17 @@ class MainGameWindow():
             for i in range(0,4):
                 x_m, y_m= x_s+i, y_s+i
 
-                if x_s not in self.blocked_area:
-                    self.blocked_area[x_s] = set()
+                #if x_s not in self.blocked_area:
+                #    self.blocked_area[x_s] = set()
 
-                self.blocked_area[x_s].add((x_s, y_s))
-                self.blocked_area[x_s].add((x_s, y_m))
+                self.blocked_area.add((x_s, y_s))
+                self.blocked_area.add((x_s, y_m))
 
-                if x_m not in self.blocked_area:
-                    self.blocked_area[x_m] = set()
+                #if x_m not in self.blocked_area:
+                #    self.blocked_area[x_m] = set()
 
-                self.blocked_area[x_m].add((x_m, y_s))
-                self.blocked_area[x_m].add((x_m, y_m))
+                self.blocked_area.add((x_m, y_s))
+                self.blocked_area.add((x_m, y_m))
 
 
         return cluster_seeds
@@ -151,22 +150,22 @@ class MainGameWindow():
 
         if keys[pygame.K_LEFT]:
             new_pos = int(round((self.player.position[0] - (speed * self.tick_time)),0))
-            if self.check_fit([new_pos, self.player.position[1]], self.player.corners, self.grid):
+            if self.check_fit([new_pos, self.player.position[1]], self.player.corners):
                 self.player.position[0] = new_pos
 
         if keys[pygame.K_RIGHT]:
             new_pos = int(round((self.player.position[0] + (speed * self.tick_time)),0))
-            if self.check_fit([new_pos, self.player.position[1]], self.player.corners, self.grid):
+            if self.check_fit([new_pos, self.player.position[1]], self.player.corners):
                 self.player.position[0] = new_pos
 
         if keys[pygame.K_UP]:
             new_pos =  int(round((self.player.position[1] - (speed * self.tick_time)),0))
-            if self.check_fit([self.player.position[0], new_pos], self.player.corners, self.grid):
+            if self.check_fit([self.player.position[0], new_pos], self.player.corners):
                 self.player.position[1] = new_pos
 
         if keys[pygame.K_DOWN]:
             new_pos = int(round((self.player.position[1] + (speed * self.tick_time)),0))
-            if self.check_fit([self.player.position[0], new_pos], self.player.corners, self.grid):
+            if self.check_fit([self.player.position[0], new_pos], self.player.corners):
                 self.player.position[1] = new_pos
 
         self.player.place_placer()
@@ -174,22 +173,22 @@ class MainGameWindow():
         pygame.display.update()
         self.tick_time = fps_clock.tick(self.refresh_rate)
 
-    def check_fit(self, new_pos, corners, grid):
+    def check_fit(self, new_pos, corners):
         for (x_width, offset_x, y_width, offset_y) in corners:
             position_x = new_pos[0] - offset_x
             position_y = new_pos[1] - offset_y
 
 
-            if position_x + x_width - offset_x not in grid['end_x']:
+            if position_x + x_width - offset_x not in self.grid['end_x']:
                 return
 
-            elif position_y + y_width - offset_y not in grid['end_y']:
+            elif position_y + y_width - offset_y not in self.grid['end_y']:
                 return
 
-            elif position_x not in grid['start_x']:
+            elif position_x not in self.grid['start_x']:
                 return
 
-            elif position_y not in grid['start_y']:
+            elif position_y not in self.grid['start_y']:
                 return
 
 
@@ -211,9 +210,8 @@ class MainGameWindow():
 
 
             for cord in corner_cords:
-                if cord[0] in self.blocked_area:
-                    if cord in self.blocked_area[cord[0]]:
-                        return
+                if cord in self.blocked_area:
+                    return
 
 
         return True
@@ -230,6 +228,8 @@ class character():
         self.body_build = self.structure_player()
         self.position = [300, 150]
         self.corners = []
+
+        self.is_placed = False
 
     def structure_player(self):
         body = {
@@ -262,6 +262,12 @@ class character():
 
             self.corners.append([x,  offset_x, y,  offset_y])
 
+        if not self.is_placed:
+            temp_position = (self.position[0],self.position[1])
+            while not self.world.check_fit(temp_position, self.corners) and not self.is_placed:
+                temp_position = (random.randint(0,len(self.world.grid['start_x'])),random.randint(0,len(self.world.grid['start_y'])))
+
+            self.position = [temp_position[0], temp_position[1]]
 
 class character_stats():
     def __init__(self):
