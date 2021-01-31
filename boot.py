@@ -182,11 +182,9 @@ def main():
         if current_screen == 1:
             window = MainGameWindow(VARS)
 
-
         if not VARS.RUNNING:
             pygame.quit()
             sys.exit()
-
 
 
 if __name__ == '__main__':

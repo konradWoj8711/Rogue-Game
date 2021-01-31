@@ -22,6 +22,10 @@ def random_partition(chunks, int_volume):
 
     return results
 
+def intervals(parts, duration):
+    part_duration = duration / parts
+    return [((i + 1) * part_duration) for i in range(parts)]
+
 
 class MainGameWindow():
 
@@ -33,11 +37,11 @@ class MainGameWindow():
         self.refresh_rate = VARS.APPROVED_FPS_RATES[VARS.CRT_FPS]
         self.screen = pygame.display.set_mode(disp_size)
         self.grid = boot.get_display_grid(disp_size)['640.0:360.0']
-        print(self.grid)
         self.fonts = boot.scale_fonts(disp_size)
         self.mouse_pos = None
         self.tick_time = 0
 
+        self.blocked_area = {}
         self.player = character(world = self)
         self.terrain = self.generate_terrain()
         self.state = self.main_loop()
@@ -51,16 +55,15 @@ class MainGameWindow():
 
         assigned_chunks = random_partition(clusters,total_squares)
 
-        cluster_seeds = {}
+        cluster_seeds = []
         for i in range(clusters):
             x = random.randint(0,grid_x-1)
             y = random.randint(0,grid_y-1)
 
-            cluster_seeds[i] = [(x, y)]
+            cluster_seeds.append((x, y))
 
-            print(assigned_chunks[i])
             for chunk in range(assigned_chunks[i]):
-                last_chunk = cluster_seeds[i][len(cluster_seeds[i])-1]
+                last_chunk = cluster_seeds[len(cluster_seeds)-1]
 
                 x = random.randint(-1,1)
                 y = random.randint(-1,1)
@@ -74,25 +77,47 @@ class MainGameWindow():
                     y = 0
 
                 new_chunk = (last_chunk[0] + x, last_chunk[1] + y)
-                if new_chunk not in cluster_seeds[i] and new_chunk[0] >= 0 and new_chunk[1] >= 0:
-                    cluster_seeds[i].append(new_chunk)
+                if new_chunk not in cluster_seeds and new_chunk[0] >= 0 and new_chunk[1] >= 0:
+                    cluster_seeds.append(new_chunk)
+
+
+        #max_y = len(self.grid['start_y'])
+        #sections = intervals(40, max_y)
+
+        for  (x, y) in cluster_seeds:
+            x_s, y_s= x*4, y*4
+            for i in range(0,4):
+                x_m, y_m= x_s+i, y_s+i
+
+                if x_s not in self.blocked_area:
+                    self.blocked_area[x_s] = set()
+
+                self.blocked_area[x_s].add((x_s, y_s))
+                self.blocked_area[x_s].add((x_s, y_m))
+
+                if x_m not in self.blocked_area:
+                    self.blocked_area[x_m] = set()
+
+                self.blocked_area[x_m].add((x_m, y_s))
+                self.blocked_area[x_m].add((x_m, y_m))
 
 
         return cluster_seeds
 
     def draw_terrain(self):
-        for cluster, coordinates in self.terrain.items():
-            for (x, y) in coordinates:
-                x, y= x*4, y*4
-                max_x, max_y = x+3, y+3
-                draw_rect(
-                    (0, 0, 0),
-                    self.grid['start_x'][x],
-                    self.grid['end_x'][max_x],
-                    self.grid['start_y'][y],
-                    self.grid['end_y'][max_y],
-                    self.screen
-                )
+        for (x, y) in self.terrain:
+
+            x, y= x*4, y*4
+            max_x, max_y = x+3, y+3
+
+            draw_rect(
+                (0, 0, 0),
+                self.grid['start_x'][x],
+                self.grid['end_x'][max_x],
+                self.grid['start_y'][y],
+                self.grid['end_y'][max_y],
+                self.screen
+            )
 
     def main_loop(self):
         self.gui_container()
@@ -126,22 +151,22 @@ class MainGameWindow():
 
         if keys[pygame.K_LEFT]:
             new_pos = int(round((self.player.position[0] - (speed * self.tick_time)),0))
-            if check_fit([new_pos, self.player.position[1]], self.player.corners, self.grid):
+            if self.check_fit([new_pos, self.player.position[1]], self.player.corners, self.grid):
                 self.player.position[0] = new_pos
 
         if keys[pygame.K_RIGHT]:
             new_pos = int(round((self.player.position[0] + (speed * self.tick_time)),0))
-            if check_fit([new_pos, self.player.position[1]], self.player.corners, self.grid):
+            if self.check_fit([new_pos, self.player.position[1]], self.player.corners, self.grid):
                 self.player.position[0] = new_pos
 
         if keys[pygame.K_UP]:
             new_pos =  int(round((self.player.position[1] - (speed * self.tick_time)),0))
-            if check_fit([self.player.position[0], new_pos], self.player.corners, self.grid):
+            if self.check_fit([self.player.position[0], new_pos], self.player.corners, self.grid):
                 self.player.position[1] = new_pos
 
         if keys[pygame.K_DOWN]:
             new_pos = int(round((self.player.position[1] + (speed * self.tick_time)),0))
-            if check_fit([self.player.position[0], new_pos], self.player.corners, self.grid):
+            if self.check_fit([self.player.position[0], new_pos], self.player.corners, self.grid):
                 self.player.position[1] = new_pos
 
         self.player.place_placer()
@@ -149,25 +174,49 @@ class MainGameWindow():
         pygame.display.update()
         self.tick_time = fps_clock.tick(self.refresh_rate)
 
-def check_fit(new_pos, corners, grid):
-    for (x, offset_x, y, offset_y) in corners:
+    def check_fit(self, new_pos, corners, grid):
+        for (x_width, offset_x, y_width, offset_y) in corners:
+            position_x = new_pos[0] - offset_x
+            position_y = new_pos[1] - offset_y
 
-        position_x = new_pos[0] - offset_x
-        position_y = new_pos[1] + offset_y
 
-        if position_x + x - offset_x not in grid['end_x']:
-            return
+            if position_x + x_width - offset_x not in grid['end_x']:
+                return
 
-        elif position_y + y + offset_y not in grid['end_y']:
-            return
+            elif position_y + y_width - offset_y not in grid['end_y']:
+                return
 
-        elif position_x not in grid['start_x']:
-            return
+            elif position_x not in grid['start_x']:
+                return
 
-        elif position_y not in grid['start_y']:
-            return
+            elif position_y not in grid['start_y']:
+                return
 
-    return True
+
+            corner_cords = []
+
+            for x in range(position_x, position_x + x_width - offset_x):
+                for y in range(position_y, position_y + y_width - offset_y):
+                    if (x,y) not in corner_cords:
+                        corner_cords.append((x,y))
+
+            """
+            # DISPLAYS HITBOX
+            for cords in corner_cords:
+                draw_rect((0,0,0),
+                self.grid['start_x'][cords[0]] , self.grid['end_x'][cords[0]],
+                self.grid['start_y'][cords[1]] , self.grid['end_y'][cords[1]],
+                self.screen)
+            """
+
+
+            for cord in corner_cords:
+                if cord[0] in self.blocked_area:
+                    if cord in self.blocked_area[cord[0]]:
+                        return
+
+
+        return True
 
 
 
@@ -184,13 +233,13 @@ class character():
 
     def structure_player(self):
         body = {
-        'head': (-3,-5,5,10),
+        'head': (-3,5,5,10),
         'torso': (0,0,14,21),
-        'arm_left': (3,6,3,10),
-        'arm_right': (-17,6,-17,10),
-        'shoulders': (3,4,23,2),
-        'leg_left': (-3,10,-5,10),
-        'leg_right': (-13,10,-15,10),
+        'arm_left': (3,-6,7,7),
+        'arm_right': (-14,-6,-11,7),
+        'shoulders': (3,-4,23,2),
+        'leg_left': (0,-10,3,7),
+        'leg_right': (-11,-10,-8,7),
         }
 
         return body
@@ -199,17 +248,18 @@ class character():
         self.corners = []
         for body_part, (offset_x, offset_y, x, y) in self.body_build.items():
             position_x = self.position[0] - offset_x
-            position_y = self.position[1] + offset_y
+            position_y = self.position[1] - offset_y
 
             edge_x = position_x + x - offset_x
-            edge_y = position_y + y + offset_y
+            edge_y = position_y + y - offset_y
 
             draw_rect(
-                (0, 0, 0),
+                (181, 13, 43),
                 self.world.grid['start_x'][position_x] , self.world.grid['end_x'][edge_x],
                 self.world.grid['start_y'][position_y] , self.world.grid['end_y'][edge_y],
                 self.world.screen
             )
+
             self.corners.append([x,  offset_x, y,  offset_y])
 
 
