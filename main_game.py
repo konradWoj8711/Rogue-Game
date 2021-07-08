@@ -2,7 +2,7 @@ import VARS
 import boot
 import pygame
 import random
-import networkx as nx
+import path_finding
 
 fps_clock = pygame.time.Clock()
 
@@ -33,6 +33,20 @@ def intervals(parts, duration):
     return [((i + 1) * part_duration) for i in range(parts)]
 
 
+
+def make_level_map(x, y, blocked):
+    map_plan = []
+    for vertical in range(x):
+        plan_line = []
+        for horizontal in range(y):
+            if (vertical, horizontal) in blocked:
+                plan_line.append(1)
+            else:
+                plan_line.append(0)
+        map_plan.append(plan_line)
+
+    return map_plan
+
 class MainGameWindow():
 
     def __init__(self, parent=None):
@@ -58,17 +72,10 @@ class MainGameWindow():
             self.terrain = self.generate_terrain()
             self.current_placements = {}
             self.enemies = {}
-            self.path_grapth = nx.grid_2d_graph(int(len(self.grid['start_x'])/4), int(len(self.grid['start_y'])/4))
-            print(int(len(self.grid['start_x'])/4), int(len(self.grid['start_y'])/4))
 
-            for i in self.blocked_area:
-                remove_cord = (int(i[0]/4), int(i[1]/4))
-                try:
-                    self.path_grapth.remove_node(remove_cord)
-                except:
-                    pass
+            self.path_grapth = make_level_map(int(len(self.grid['start_x'])), int(len(self.grid['start_y'])), self.blocked_area)
 
-            for i in range(3):
+            for i in range(1):
                 self.enemies[i] = Enemy(i, world=self)
 
             self.state = self.main_loop()
@@ -333,6 +340,7 @@ class Character():
 
 class Enemy():
     def __init__(self, enemy_id, world=None):
+        self.move_order = []
         self.world = world
         self.stats = BaseStats(speed=0.07)
         self.body_build = self.structure_enemy()
@@ -377,26 +385,28 @@ class Enemy():
             self.position = [temp_position[0], temp_position[1]]
 
     def find_path(self, target):
-        starting_point = (int(round(self.position[0]/4, 0)), int(round(self.position[1]/4, 0)))
-        target = (int(round(target[0]/4, 0)), int(round(target[1]/4, 0)))
-        #print(starting_point, target)
-        try:
-            move_order = nx.bidirectional_shortest_path(self.world.path_grapth, source=starting_point, target=target)
-            for i in move_order:
+        starting_point = (int(round(self.position[0], 0)), int(round(self.position[1], 0)))
+        target = (int(round(target[0], 0)), int(round(target[1], 0)))
+
+        print(starting_point, target)
+        if len(self.move_order) <=1:
+            self.move_order = path_finding.astar(self.world.path_grapth, starting_point, target)
+
+        if len(self.move_order) >1:
+            for i in self.move_order:
                 draw_rect(
                     (62, 176, 106),
-                    self.world.grid['start_x'][i[0]*4], self.world.grid['end_x'][i[0]*4],
-                    self.world.grid['start_y'][i[1]*4], self.world.grid['end_y'][i[1]*4],
+                    self.world.grid['start_x'][i[0]], self.world.grid['end_x'][i[0]],
+                    self.world.grid['start_y'][i[1]], self.world.grid['end_y'][i[1]],
                     self.world.screen
                 )
-            if len(move_order) > 1:
-                print(len(move_order))
-                print(move_order[1][0]*4, move_order[1][1]*4)
-                new_pos = [move_order[1][0]*4, move_order[1][1]*4]
-                self.position = new_pos
-        except:
-            pass
 
+            if len(self.move_order) > 1:
+                print(len(self.move_order))
+                print(self.move_order[1][0], self.move_order[1][1])
+                new_pos = [self.move_order[1][0], self.move_order[1][1]]
+                self.position = new_pos
+                del self.move_order[0]
 
         #print(self.world.free_terrain )
         """
@@ -438,7 +448,7 @@ class Enemy():
 
         print(move_order)
         self.position = temp_coordinates
-        
+
 
         temp_pos = self.position.copy()
         for direction in moves:
@@ -461,6 +471,6 @@ class Enemy():
 
                 if self.world.check_fit(temp_pos, self.corners, self.enemy_id):
                     self.position = temp_pos
-        
+
 
         """
