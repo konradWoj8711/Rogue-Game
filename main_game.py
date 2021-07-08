@@ -208,7 +208,7 @@ class MainGameWindow():
                 self.player.position[1] = new_pos
 
         for enemy_tag, enemy_class in self.enemies.items():
-            enemy_class.find_path(self.player.position)
+            enemy_class.find_path(self.player.position, self.tick_time)
             enemy_class.place_enemy()
 
         self.player.place_player()
@@ -342,7 +342,7 @@ class Enemy():
     def __init__(self, enemy_id, world=None):
         self.move_order = []
         self.world = world
-        self.stats = BaseStats(speed=0.07)
+        self.stats = BaseStats(speed=0.01)
         self.body_build = self.structure_enemy()
         self.position = [300, 150]
         self.corners = []
@@ -384,7 +384,7 @@ class Enemy():
             self.is_placed = True
             self.position = [temp_position[0], temp_position[1]]
 
-    def find_path(self, target):
+    def find_path(self, target, tick_time):
         starting_point = (int(round(self.position[0], 0)), int(round(self.position[1], 0)))
         target = (int(round(target[0], 0)), int(round(target[1], 0)))
 
@@ -402,9 +402,14 @@ class Enemy():
                 )
 
             if len(self.move_order) > 1:
-                print(len(self.move_order))
-                print(self.move_order[1][0], self.move_order[1][1])
                 new_pos = [self.move_order[1][0], self.move_order[1][1]]
+
+                if starting_point[0] != self.move_order[1][0]:
+                    new_pos[0] = new_pos[0]+ (int(round(self.stats.speed * tick_time)))
+
+                if starting_point[1] != self.move_order[1][1]:
+                    new_pos[1] = new_pos[1]+ (int(round(self.stats.speed * tick_time)))
+
                 self.position = new_pos
                 del self.move_order[0]
 
