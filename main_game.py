@@ -32,21 +32,6 @@ def intervals(parts, duration):
     part_duration = duration / parts
     return [((i + 1) * part_duration) for i in range(parts)]
 
-
-
-def make_level_map(x, y, blocked):
-    map_plan = []
-    for vertical in range(x):
-        plan_line = []
-        for horizontal in range(y):
-            if (vertical, horizontal) in blocked:
-                plan_line.append(1)
-            else:
-                plan_line.append(0)
-        map_plan.append(plan_line)
-
-    return map_plan
-
 class MainGameWindow():
 
     def __init__(self, parent=None):
@@ -72,8 +57,7 @@ class MainGameWindow():
             self.terrain = self.generate_terrain()
             self.current_placements = {}
             self.enemies = {}
-
-            self.path_grapth = make_level_map(int(len(self.grid['start_x'])), int(len(self.grid['start_y'])), self.blocked_area)
+            self.path_grapth = path_finding.make_level_map(int(len(self.grid['start_x'])), int(len(self.grid['start_y'])), self.blocked_area)
 
             for i in range(1):
                 self.enemies[i] = Enemy(i, world=self)
@@ -118,22 +102,24 @@ class MainGameWindow():
 
         for (x, y) in cluster_seeds:
             x_s, y_s = x * 4, y * 4
+            self.blocked_area.add((x_s, y_s))
+
             for i in range(0, 4):
-                x_m, y_m = x_s + i, y_s + i
 
-                # if x_s not in self.blocked_area:
-                #    self.blocked_area[x_s] = set()
+                for a in range(0, 4):
 
-                self.blocked_area.add((x_s, y_s))
-                self.blocked_area.add((x_s, y_m))
+                    x_m, y_m = x_s + a, y_s + i
 
-                # if x_m not in self.blocked_area:
-                #    self.blocked_area[x_m] = set()
+                    # if x_s not in self.blocked_area:
+                    #    self.blocked_area[x_s] = set()
 
-                self.blocked_area.add((x_m, y_s))
-                self.blocked_area.add((x_m, y_m))
+                    self.blocked_area.add((x_s, y_m))
+                    self.blocked_area.add((x_m, y_s))
+                    self.blocked_area.add((x_m, y_m))
+
 
         return cluster_seeds
+
 
     def draw_terrain(self):
         for (x, y) in self.terrain:
@@ -148,6 +134,7 @@ class MainGameWindow():
                 self.grid['end_y'][max_y],
                 self.screen
             )
+
 
     def main_loop(self):
         self.gui_container()
@@ -337,7 +324,6 @@ class Character():
             self.is_placed = True
             self.position = [temp_position[0], temp_position[1]]
 
-
 class Enemy():
     def __init__(self, enemy_id, world=None):
         self.move_order = []
@@ -347,7 +333,7 @@ class Enemy():
         self.position = [300, 150]
         self.corners = []
         self.enemy_id = enemy_id
-
+        self.hpa_world = path_finding.map_hpa(len(self.world.grid['start_x']), len(self.world.grid['start_y']), 10, self.world.blocked_area)
         self.is_placed = False
 
     def structure_enemy(self, enemy_type=None):
@@ -388,7 +374,6 @@ class Enemy():
         starting_point = (int(round(self.position[0], 0)), int(round(self.position[1], 0)))
         target = (int(round(target[0], 0)), int(round(target[1], 0)))
 
-        print(starting_point, target)
         if len(self.move_order) <=1:
             self.move_order = path_finding.astar(self.world.path_grapth, starting_point, target)
 

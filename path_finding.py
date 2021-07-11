@@ -38,6 +38,62 @@ def return_path(current_node):
         current = current.parent
     return path[::-1]  # Return reversed path
 
+def make_level_map(x, y, blocked, additional_x = 0, additional_y = 0):
+    map_plan = []
+    for horizontal in range(x):
+        plan_line = []
+
+        for vertical in range(y):
+
+            if (horizontal + additional_x, vertical + additional_y) in blocked:
+                plan_line.append(1)
+            else:
+                plan_line.append(0)
+        map_plan.append(plan_line)
+
+    return map_plan
+
+def map_hpa(maze_x, maze_y, split_size, blocked_area):
+    x, y = int(maze_x / split_size), int(maze_y / split_size),
+    divions = []
+    for vertical in range(y):
+        new_map = {}
+        for horizontal in range(x):
+            partition = []
+            for additional_x in range(split_size):
+                for additional_y in range(split_size):
+                    partition.append(((horizontal * split_size) + additional_x, (vertical * split_size) + additional_y))
+
+            new_map[(horizontal, vertical)] = partition
+
+        divions.append(new_map)
+
+
+
+    for vertical in divions:
+        for sub_square_coordinate, real_nodes in vertical.items():
+            neighbouring_cells = {'above': 0, 'below': 0, 'left': 0, 'right': 0}
+
+            if sub_square_coordinate[0] == 0:
+                neighbouring_cells['left'] = 1
+
+            elif sub_square_coordinate[0] == x - 1:
+                neighbouring_cells['right'] = 1
+
+            if sub_square_coordinate[1] == 0:
+                neighbouring_cells['above'] = 1
+
+            elif sub_square_coordinate[1] == y - 1:
+                neighbouring_cells['below'] = 1
+
+            visualised_map = make_level_map(10, 10, blocked_area, additional_x = real_nodes[0][0], additional_y = real_nodes[0][1])
+            print(real_nodes[0][0], real_nodes[0][1])
+            print(sub_square_coordinate)
+            print(neighbouring_cells)
+            for line in visualised_map:
+                print(line)
+            print()
+
 
 def astar(maze, start, end, allow_diagonal_movement = False):
     """
@@ -64,7 +120,7 @@ def astar(maze, start, end, allow_diagonal_movement = False):
 
     # Adding a stop condition
     outer_iterations = 0
-    max_iterations = (len(maze[0]) * len(maze) // 2)
+    max_iterations = 1500 #(len(maze[0]) * len(maze) // 3)
 
     # what squares do we search
     adjacent_squares = ((0, -1), (0, 1), (-1, 0), (1, 0),)
