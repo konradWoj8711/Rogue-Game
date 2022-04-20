@@ -68,10 +68,12 @@ def map_hpa(maze_x, maze_y, split_size, blocked_area):
 
         divions.append(new_map)
 
-
-
+    paths = {}
+    count = 0
+    blocked = []
     for vertical in divions:
         for sub_square_coordinate, real_nodes in vertical.items():
+            non_path = True
             neighbouring_cells = {'above': 0, 'below': 0, 'left': 0, 'right': 0}
 
             if sub_square_coordinate[0] == 0:
@@ -86,13 +88,120 @@ def map_hpa(maze_x, maze_y, split_size, blocked_area):
             elif sub_square_coordinate[1] == y - 1:
                 neighbouring_cells['below'] = 1
 
-            visualised_map = make_level_map(10, 10, blocked_area, additional_x = real_nodes[0][0], additional_y = real_nodes[0][1])
-            print(real_nodes[0][0], real_nodes[0][1])
-            print(sub_square_coordinate)
-            print(neighbouring_cells)
-            for line in visualised_map:
-                print(line)
-            print()
+            visualised_map = make_level_map(split_size, split_size, blocked_area, additional_x = real_nodes[0][0], additional_y = real_nodes[0][1])
+
+            pass_nodes = []
+
+            for direction, value in neighbouring_cells.items():
+                if value: continue
+                if direction == 'left':
+                    filter_value = {'x': real_nodes[0][0]}
+                    destination = (sub_square_coordinate[0]-1,sub_square_coordinate[1])
+
+                elif direction == 'right':
+                    filter_value = {'x': real_nodes[-1][0]}
+                    destination = (sub_square_coordinate[0]+1,sub_square_coordinate[1])
+
+                if direction == 'above':
+                    filter_value = {'y': real_nodes[0][1]}
+                    destination = (sub_square_coordinate[0],sub_square_coordinate[1]-1)
+
+                elif direction == 'below':
+                    filter_value = {'y': real_nodes[-1][1]}
+                    destination = (sub_square_coordinate[0],sub_square_coordinate[1]+1)
+
+                for node in real_nodes:
+                    if 'x' in filter_value:
+                        if node[0] != filter_value['x']: continue
+                    elif 'y' in filter_value:
+                        if node[1] != filter_value['y']: continue
+
+                    if node in blocked_area: continue
+
+                    pass_nodes.append([node,destination])
+
+            for (node, neighbouring_node) in pass_nodes:
+                for (other_node, finish_node) in pass_nodes:
+                    if node == other_node: continue
+
+                    link_name = str(sub_square_coordinate) + " - " + str(finish_node)
+
+                    if link_name not in paths: paths[link_name] = []
+                    if len(paths[link_name]) >= 1: continue
+
+                    cal_x, cal_y = sub_square_coordinate[0] * split_size, sub_square_coordinate[1] * split_size
+
+                    start_node = (node[0] - cal_x, node[1] - cal_y)
+                    end_node = (other_node[0] - cal_x, other_node[1] - cal_y)
+
+                    link = astar(visualised_map, start_node, end_node)
+                    if not link: continue
+                    non_path = False
+                    paths[link_name].append(link)
+
+                    print(count, len(paths))
+                    for line in visualised_map:
+                        print(line)
+
+                    print(link)
+                    print()
+
+                    count+=1
+
+            if non_path:
+                blocked.append(sub_square_coordinate)
+
+
+    over_view_map = []
+    for horizontal in range(x):
+        plan_line = []
+        below_line = []
+
+        for vertical in range(y):
+            if (horizontal, vertical) in blocked:
+                plan_line.append(1)
+            else:
+                plan_line.append(0)
+
+            if vertical + 1 != y:
+                node_link = str((horizontal, vertical)) + " - " + str((horizontal, vertical + 1))
+                if node_link in paths:
+                    if paths[node_link]:
+                        plan_line.append(0)
+                    else:
+                        plan_line.append(1)
+
+                else:
+                    plan_line.append(1)
+
+
+            if horizontal + 1 != x:
+                node_link = str((horizontal, vertical)) + " - " + str((horizontal + 1, vertical))
+                if node_link in paths:
+                    if paths[node_link]:
+                        below_line.append(0)
+                    else:
+                        below_line.append(1)
+                else:
+                    below_line.append(1)
+
+                if vertical + 1 != y:
+                    below_line.append(1)
+
+
+        over_view_map.append(plan_line)
+        if below_line:
+            over_view_map.append(below_line)
+
+    for line in over_view_map:
+        new_line = ''
+        for element in line:
+            if element == 1: new_line+="■"
+            if element == 0: new_line+=" "
+
+    #    print(new_line, len(line))
+    return(over_view_map, paths)
+
 
 
 def astar(maze, start, end, allow_diagonal_movement = False):
@@ -134,7 +243,7 @@ def astar(maze, start, end, allow_diagonal_movement = False):
         if outer_iterations > max_iterations:
           # if we hit this point return the path such as it is
           # it will not contain the destination
-          warn("giving up on pathfinding too many iterations")
+          print("giving up on pathfinding too many iterations")
           return return_path(current_node)
 
         # Get the current node

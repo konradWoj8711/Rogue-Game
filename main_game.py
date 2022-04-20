@@ -333,8 +333,11 @@ class Enemy():
         self.position = [300, 150]
         self.corners = []
         self.enemy_id = enemy_id
-        self.hpa_world = path_finding.map_hpa(len(self.world.grid['start_x']), len(self.world.grid['start_y']), 10, self.world.blocked_area)
+        #self.hpa_world = path_finding.map_hpa(len(self.world.grid['start_x']), len(self.world.grid['start_y']), 20, self.world.blocked_area)
         self.is_placed = False
+
+        self.last_start = None
+        self.last_target = None
 
     def structure_enemy(self, enemy_type=None):
         body = {
@@ -371,21 +374,25 @@ class Enemy():
             self.position = [temp_position[0], temp_position[1]]
 
     def find_path(self, target, tick_time):
-        starting_point = (int(round(self.position[0], 0)), int(round(self.position[1], 0)))
-        target = (int(round(target[0], 0)), int(round(target[1], 0)))
+        starting_point = (int(round(self.position[0], 0)/20), int(round(self.position[1], 0)/20))
+        target = (int(round(target[0], 0)/20), int(round(target[1], 0)/20))
 
-        if len(self.move_order) <=1:
-            self.move_order = path_finding.astar(self.world.path_grapth, starting_point, target)
+        #if len(self.move_order) <=1:
+            #self.move_order = path_finding.astar(self.world.path_grapth, starting_point, target)
+        if self.last_start != starting_point or self.last_target!= target:
+            self.last_start=starting_point
+            self.last_target=target
+            #self.move_order = path_finding.astar(self.hpa_world[0], starting_point, target)
 
         if len(self.move_order) >1:
             for i in self.move_order:
                 draw_rect(
                     (62, 176, 106),
-                    self.world.grid['start_x'][i[0]], self.world.grid['end_x'][i[0]],
-                    self.world.grid['start_y'][i[1]], self.world.grid['end_y'][i[1]],
+                    self.world.grid['start_x'][i[0]*10], self.world.grid['end_x'][i[0]*10],
+                    self.world.grid['start_y'][i[1]*10], self.world.grid['end_y'][i[1]*10],
                     self.world.screen
                 )
-
+        """
             if len(self.move_order) > 1:
                 new_pos = [self.move_order[1][0], self.move_order[1][1]]
 
@@ -397,7 +404,7 @@ class Enemy():
 
                 self.position = new_pos
                 del self.move_order[0]
-
+        """
         #print(self.world.free_terrain )
         """
         tried_positions = set()
